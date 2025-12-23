@@ -36,15 +36,15 @@ const AnalysisResults = ({ data, onReset }: AnalysisResultsProps) => {
 
         {/* Charts Row */}
         <div className="grid md:grid-cols-2 gap-6">
-          <GenreChart stats={data.stats} />
-          <MoodChart stats={data.stats} />
+          <GenreChart stats={data.stats} genreData={data.genreData} />
+          <MoodChart stats={data.stats} moodData={data.moodData} />
         </div>
 
         {/* Top Artists */}
-        <TopArtists artists={data.artists} />
+        <TopArtists artists={data.topArtists || data.artists || []} />
 
         {/* Top Tracks */}
-        <TopTracks tracks={data.tracks} />
+        <TopTracks tracks={data.topTracks || data.tracks || []} />
 
         {/* Fun Facts */}
         <PlaylistFacts facts={data.facts} />

@@ -1,11 +1,11 @@
 import { useState } from "react";
 import HeroSection from "@/components/HeroSection";
 import AnalysisResults from "@/components/AnalysisResults";
-import { mockPlaylistData } from "@/data/mockPlaylist";
 import { PlaylistData } from "@/types/playlist";
 import { useToast } from "@/hooks/use-toast";
 import { useUserSync } from "@/hooks/useUserSync";
 import UserButton from "@/components/auth/UserButton";
+import { supabase } from "@/integrations/supabase/client";
 
 const Index = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -28,16 +28,35 @@ const Index = () => {
 
     setIsLoading(true);
 
-    // Simulate API call with mock data
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    try {
+      const { data, error } = await supabase.functions.invoke('spotify-playlist', {
+        body: { playlistUrl: url },
+      });
 
-    setAnalysisData(mockPlaylistData);
-    setIsLoading(false);
+      if (error) {
+        throw new Error(error.message || 'Failed to analyze playlist');
+      }
 
-    toast({
-      title: "Analysis Complete!",
-      description: "Your playlist insights are ready",
-    });
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      setAnalysisData(data as PlaylistData);
+      
+      toast({
+        title: "Analysis Complete!",
+        description: "Your playlist insights are ready",
+      });
+    } catch (error) {
+      console.error('Error analyzing playlist:', error);
+      toast({
+        title: "Analysis Failed",
+        description: error instanceof Error ? error.message : "Failed to analyze playlist",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleReset = () => {

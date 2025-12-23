@@ -8,32 +8,32 @@ interface StatsCardsProps {
 const StatsCards = ({ stats }: StatsCardsProps) => {
   const cards = [
     {
-      label: "Popularity",
-      value: `${stats.avgPopularity}%`,
-      icon: TrendingUp,
-      description: "Average track popularity",
+      label: "Total Tracks",
+      value: `${stats.totalTracks}`,
+      icon: Music,
+      description: "Songs in playlist",
       color: "text-spotify-green",
     },
     {
-      label: "Energy",
-      value: `${Math.round(stats.avgEnergy * 100)}%`,
+      label: "Duration",
+      value: typeof stats.totalDuration === 'string' ? stats.totalDuration : `${Math.floor(stats.totalDuration / 60)}m`,
+      icon: TrendingUp,
+      description: "Total playtime",
+      color: "text-blue-400",
+    },
+    {
+      label: "Popularity",
+      value: `${stats.avgPopularity}%`,
       icon: Zap,
-      description: "How energetic your music is",
+      description: "Average track popularity",
       color: "text-orange-400",
     },
     {
-      label: "Danceability",
-      value: `${Math.round(stats.avgDanceability * 100)}%`,
-      icon: Music,
-      description: "How danceable your tracks are",
-      color: "text-pink-400",
-    },
-    {
-      label: "Happiness",
-      value: `${Math.round(stats.avgValence * 100)}%`,
+      label: "Tempo",
+      value: stats.avgTempo ? `${stats.avgTempo} BPM` : 'N/A',
       icon: Smile,
-      description: "Overall positive mood",
-      color: "text-yellow-400",
+      description: "Average tempo",
+      color: "text-pink-400",
     },
   ];
 
