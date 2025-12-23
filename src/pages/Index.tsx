@@ -1,13 +1,54 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState } from "react";
+import HeroSection from "@/components/HeroSection";
+import AnalysisResults from "@/components/AnalysisResults";
+import { mockPlaylistData } from "@/data/mockPlaylist";
+import { PlaylistData } from "@/types/playlist";
+import { useToast } from "@/hooks/use-toast";
 
 const Index = () => {
+  const [isLoading, setIsLoading] = useState(false);
+  const [analysisData, setAnalysisData] = useState<PlaylistData | null>(null);
+  const { toast } = useToast();
+
+  const handleAnalyze = async (url: string) => {
+    // Validate URL format
+    if (!url.includes("spotify.com/playlist")) {
+      toast({
+        title: "Invalid URL",
+        description: "Please enter a valid Spotify playlist URL",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+
+    // Simulate API call with mock data
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
+    setAnalysisData(mockPlaylistData);
+    setIsLoading(false);
+
+    toast({
+      title: "Analysis Complete!",
+      description: "Your playlist insights are ready",
+    });
+  };
+
+  const handleReset = () => {
+    setAnalysisData(null);
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
-    </div>
+    <main className="min-h-screen bg-background">
+      {/* SEO Meta would typically go in index.html or via react-helmet */}
+      
+      {analysisData ? (
+        <AnalysisResults data={analysisData} onReset={handleReset} />
+      ) : (
+        <HeroSection onAnalyze={handleAnalyze} isLoading={isLoading} />
+      )}
+    </main>
   );
 };
 
