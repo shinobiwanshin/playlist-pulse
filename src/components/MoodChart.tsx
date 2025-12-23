@@ -1,8 +1,9 @@
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell } from "recharts";
-import { PlaylistStats } from "@/types/playlist";
+import { PlaylistStats, ChartData } from "@/types/playlist";
 
 interface MoodChartProps {
   stats: PlaylistStats;
+  moodData?: ChartData[];
 }
 
 const COLORS = [
@@ -10,16 +11,24 @@ const COLORS = [
   "hsl(280, 65%, 55%)",
   "hsl(45, 90%, 55%)",
   "hsl(200, 70%, 50%)",
+  "hsl(320, 60%, 55%)",
 ];
 
-const MoodChart = ({ stats }: MoodChartProps) => {
+const MoodChart = ({ stats, moodData }: MoodChartProps) => {
+  // Use moodData if provided, otherwise fall back to stats.moodDistribution
+  const data = moodData || stats.moodDistribution?.map(m => ({ name: m.mood, value: m.value })) || [];
+
+  if (data.length === 0) {
+    return null;
+  }
+
   return (
     <div className="glass-card rounded-xl p-6 animate-slide-up animation-delay-100">
       <h3 className="text-xl font-semibold mb-6">Mood Analysis</h3>
       
       <div className="h-[200px]">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={stats.moodDistribution} layout="vertical">
+          <BarChart data={data} layout="vertical">
             <XAxis 
               type="number" 
               domain={[0, 100]} 
@@ -29,7 +38,7 @@ const MoodChart = ({ stats }: MoodChartProps) => {
             />
             <YAxis 
               type="category" 
-              dataKey="mood" 
+              dataKey="name" 
               axisLine={false}
               tickLine={false}
               tick={{ fill: "hsl(0, 0%, 98%)", fontSize: 13, fontWeight: 500 }}
@@ -45,7 +54,7 @@ const MoodChart = ({ stats }: MoodChartProps) => {
               formatter={(value: number) => [`${value}%`, "Score"]}
             />
             <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={24}>
-              {stats.moodDistribution.map((_, index) => (
+              {data.map((_, index) => (
                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
               ))}
             </Bar>

@@ -1,1 +1,4 @@
 project_id = "flokgejpiotvayscomfz"
+
+[functions.spotify-playlist]
+verify_jwt = false
