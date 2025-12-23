@@ -4,11 +4,16 @@ import AnalysisResults from "@/components/AnalysisResults";
 import { mockPlaylistData } from "@/data/mockPlaylist";
 import { PlaylistData } from "@/types/playlist";
 import { useToast } from "@/hooks/use-toast";
+import { useUserSync } from "@/hooks/useUserSync";
+import UserButton from "@/components/auth/UserButton";
 
 const Index = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [analysisData, setAnalysisData] = useState<PlaylistData | null>(null);
   const { toast } = useToast();
+  
+  // Sync user data to Supabase
+  useUserSync();
 
   const handleAnalyze = async (url: string) => {
     // Validate URL format
@@ -41,7 +46,10 @@ const Index = () => {
 
   return (
     <main className="min-h-screen bg-background">
-      {/* SEO Meta would typically go in index.html or via react-helmet */}
+      {/* User menu */}
+      <div className="absolute top-4 right-4 z-50">
+        <UserButton />
+      </div>
       
       {analysisData ? (
         <AnalysisResults data={analysisData} onReset={handleReset} />
