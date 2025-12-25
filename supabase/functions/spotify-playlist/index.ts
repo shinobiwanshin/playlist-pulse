@@ -171,8 +171,46 @@ async function fetchAudioFeatures(accessToken: string, trackIds: string[]): Prom
   return allFeatures;
 }
 
+// Fetch artist details including images
+async function fetchArtists(accessToken: string, artistIds: string[]): Promise<Map<string, string>> {
+  const artistImages = new Map<string, string>();
+  if (artistIds.length === 0) return artistImages;
+
+  // Spotify API allows max 50 artist IDs per request
+  const batches = [];
+  for (let i = 0; i < artistIds.length; i += 50) {
+    batches.push(artistIds.slice(i, i + 50));
+  }
+
+  for (const batch of batches) {
+    console.log(`Fetching artist details for ${batch.length} artists...`);
+    
+    const response = await fetch(
+      `https://api.spotify.com/v1/artists?ids=${batch.join(',')}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+        },
+      }
+    );
+
+    if (response.ok) {
+      const data = await response.json();
+      data.artists?.forEach((artist: any) => {
+        if (artist?.id && artist?.images?.[0]?.url) {
+          artistImages.set(artist.id, artist.images[0].url);
+        }
+      });
+    } else {
+      console.warn('Failed to fetch some artist details');
+    }
+  }
+
+  return artistImages;
+}
+
 // Process and analyze playlist data
-function analyzePlaylist(playlist: SpotifyPlaylist, audioFeatures: AudioFeatures[]) {
+function analyzePlaylist(playlist: SpotifyPlaylist, audioFeatures: AudioFeatures[], artistImages: Map<string, string>) {
   const tracks = playlist.tracks.items
     .filter(item => item.track && item.track.id)
     .map(item => item.track);
@@ -181,11 +219,11 @@ function analyzePlaylist(playlist: SpotifyPlaylist, audioFeatures: AudioFeatures
   const totalDurationMs = tracks.reduce((sum, track) => sum + track.duration_ms, 0);
 
   // Get artist counts
-  const artistCounts: Record<string, { name: string; count: number; image?: string }> = {};
+  const artistCounts: Record<string, { name: string; count: number; id: string }> = {};
   tracks.forEach(track => {
     track.artists.forEach(artist => {
       if (!artistCounts[artist.id]) {
-        artistCounts[artist.id] = { name: artist.name, count: 0 };
+        artistCounts[artist.id] = { name: artist.name, count: 0, id: artist.id };
       }
       artistCounts[artist.id].count++;
     });
@@ -193,7 +231,13 @@ function analyzePlaylist(playlist: SpotifyPlaylist, audioFeatures: AudioFeatures
 
   const topArtists = Object.values(artistCounts)
     .sort((a, b) => b.count - a.count)
-    .slice(0, 10);
+    .slice(0, 10)
+    .map((artist, index) => ({
+      rank: index + 1,
+      name: artist.name,
+      tracks: artist.count,
+      image: artistImages.get(artist.id) || '',
+    }));
 
   // Calculate average audio features
   const avgFeatures = audioFeatures.reduce(
@@ -280,12 +324,7 @@ function analyzePlaylist(playlist: SpotifyPlaylist, audioFeatures: AudioFeatures
       avgTempo: Math.round(avgFeatures.tempo),
       explicitPercentage: Math.round((explicitCount / tracks.length) * 100),
     },
-    topArtists: topArtists.map((artist, index) => ({
-      rank: index + 1,
-      name: artist.name,
-      tracks: artist.count,
-      image: '', // Would need separate artist API call
-    })),
+    topArtists,
     topTracks,
     moodData,
     genreData,
@@ -363,9 +402,19 @@ serve(async (req) => {
       .filter(item => item.track?.id)
       .map(item => item.track.id);
     
-    const audioFeatures = await fetchAudioFeatures(accessToken, trackIds);
+    // Get unique artist IDs for fetching images
+    const artistIds = [...new Set(
+      playlist.tracks.items
+        .filter(item => item.track?.artists)
+        .flatMap(item => item.track.artists.map(a => a.id))
+    )].slice(0, 50); // Limit to top 50 artists
     
-    const analysis = analyzePlaylist(playlist, audioFeatures);
+    const [audioFeatures, artistImages] = await Promise.all([
+      fetchAudioFeatures(accessToken, trackIds),
+      fetchArtists(accessToken, artistIds),
+    ]);
+    
+    const analysis = analyzePlaylist(playlist, audioFeatures, artistImages);
 
     console.log('Analysis complete for playlist:', playlist.name);
 
