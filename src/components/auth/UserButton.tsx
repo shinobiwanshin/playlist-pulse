@@ -1,4 +1,4 @@
-import { UserButton as ClerkUserButton, useAuth } from '@clerk/clerk-react';
+import { UserButton as ClerkUserButton, OrganizationSwitcher, useAuth } from '@clerk/clerk-react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { LogIn } from 'lucide-react';
@@ -24,17 +24,29 @@ const UserButton = () => {
   }
 
   return (
-    <ClerkUserButton
-      appearance={{
-        elements: {
-          avatarBox: 'w-9 h-9',
-          userButtonPopoverCard: 'bg-card border border-border',
-          userButtonPopoverActionButton: 'text-foreground hover:bg-muted',
-          userButtonPopoverActionButtonText: 'text-foreground',
-          userButtonPopoverFooter: 'hidden',
-        },
-      }}
-    />
+    <div className="flex items-center gap-4">
+      <OrganizationSwitcher
+        appearance={{
+          elements: {
+            organizationSwitcherTrigger: 'text-foreground hover:bg-muted p-2 rounded-md',
+            organizationPreviewTextContainer: 'text-foreground',
+            organizationSwitcherPopoverCard: 'bg-card border border-border',
+            organizationSwitcherPopoverActionButton: 'text-foreground hover:bg-muted',
+          }
+        }}
+      />
+      <ClerkUserButton
+        appearance={{
+          elements: {
+            avatarBox: 'w-9 h-9',
+            userButtonPopoverCard: 'bg-card border border-border',
+            userButtonPopoverActionButton: 'text-foreground hover:bg-muted',
+            userButtonPopoverActionButtonText: 'text-foreground',
+            userButtonPopoverFooter: 'hidden',
+          },
+        }}
+      />
+    </div>
   );
 };
 
