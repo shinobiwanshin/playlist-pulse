@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 import HeroSection from "@/components/HeroSection";
 import AnalysisResults from "@/components/AnalysisResults";
 import { PlaylistData } from "@/types/playlist";
@@ -6,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useUserSync } from "@/hooks/useUserSync";
 import UserButton from "@/components/auth/UserButton";
 import { supabase } from "@/integrations/supabase/client";
+import { Candy } from "lucide-react";
 
 const Index = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -66,7 +69,13 @@ const Index = () => {
   return (
     <main className="min-h-screen bg-background">
       {/* User menu */}
-      <div className="absolute top-4 right-4 z-50">
+      <div className="absolute top-4 right-4 z-50 flex items-center gap-4">
+        <Link to="/sweets">
+          <Button variant="outline" className="gap-2">
+            <Candy className="w-4 h-4" />
+            Sweets Shop
+          </Button>
+        </Link>
         <UserButton />
       </div>
       

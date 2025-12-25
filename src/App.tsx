@@ -8,6 +8,7 @@ import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import Index from "./pages/Index";
 import SignIn from "./pages/SignIn";
 import SignUp from "./pages/SignUp";
+import Sweets from "./pages/Sweets";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,6 +26,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Index />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/sweets"
+              element={
+                <ProtectedRoute>
+                  <Sweets />
                 </ProtectedRoute>
               }
             />
