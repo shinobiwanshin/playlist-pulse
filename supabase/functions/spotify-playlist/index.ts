@@ -345,34 +345,88 @@ function formatDuration(ms: number): string {
 function generateFacts(playlist: SpotifyPlaylist, tracks: any[], features: any, decades: Record<string, number>): string[] {
   const facts = [];
   
+  // Decade analysis
   const topDecade = Object.entries(decades).sort((a, b) => b[1] - a[1])[0];
   if (topDecade) {
-    facts.push(`Most tracks are from the ${topDecade[0]}`);
+    const percentage = Math.round((topDecade[1] / tracks.length) * 100);
+    facts.push(`${percentage}% of tracks are from the ${topDecade[0]}`);
   }
   
-  if (features.valence > 0.6) {
-    facts.push('This playlist has a very happy and positive vibe');
-  } else if (features.valence < 0.4) {
-    facts.push('This playlist has a melancholic and introspective mood');
+  // Mood/Valence analysis
+  if (features.valence > 0.7) {
+    facts.push('🎉 Extremely upbeat and cheerful playlist!');
+  } else if (features.valence > 0.5) {
+    facts.push('😊 This playlist has a positive and happy vibe');
+  } else if (features.valence > 0.3) {
+    facts.push('🎭 A balanced mix of moods and emotions');
+  } else {
+    facts.push('💭 Melancholic and introspective mood throughout');
   }
   
-  if (features.energy > 0.7) {
-    facts.push('High energy playlist - perfect for workouts!');
+  // Energy analysis
+  if (features.energy > 0.8) {
+    facts.push('⚡ Ultra high-energy - perfect for intense workouts!');
+  } else if (features.energy > 0.6) {
+    facts.push('🔥 High energy playlist - great for staying active');
   } else if (features.energy < 0.3) {
-    facts.push('Relaxing playlist - great for unwinding');
+    facts.push('🌙 Low-key and relaxing - ideal for winding down');
   }
   
-  if (features.danceability > 0.7) {
-    facts.push('Highly danceable tracks dominate this playlist');
+  // Tempo analysis with more detail
+  const tempo = Math.round(features.tempo);
+  if (tempo > 140) {
+    facts.push(`🚀 Fast-paced at ${tempo} BPM - get ready to move!`);
+  } else if (tempo > 120) {
+    facts.push(`💃 Upbeat tempo at ${tempo} BPM - perfect for dancing`);
+  } else if (tempo > 100) {
+    facts.push(`🎵 Moderate tempo at ${tempo} BPM - versatile vibes`);
+  } else if (tempo > 80) {
+    facts.push(`🎹 Laid-back groove at ${tempo} BPM`);
+  } else {
+    facts.push(`🌊 Slow and smooth at ${tempo} BPM`);
   }
   
-  if (features.acousticness > 0.5) {
-    facts.push('Acoustic and organic sounds are prominent');
+  // Danceability analysis
+  if (features.danceability > 0.8) {
+    facts.push('💃 Extremely danceable - impossible to sit still!');
+  } else if (features.danceability > 0.6) {
+    facts.push('🕺 Great for dancing - high groove factor');
   }
-
-  facts.push(`Average tempo: ${Math.round(features.tempo)} BPM`);
   
-  return facts.slice(0, 5);
+  // Acousticness analysis
+  if (features.acousticness > 0.7) {
+    facts.push('🎸 Predominantly acoustic and organic sounds');
+  } else if (features.acousticness > 0.4) {
+    facts.push('🎹 Nice blend of acoustic and electronic elements');
+  } else if (features.acousticness < 0.2) {
+    facts.push('🎛️ Heavily produced with electronic elements');
+  }
+  
+  // Speechiness (vocal content)
+  if (features.speechiness > 0.6) {
+    facts.push('🎤 Lots of spoken word or rap content');
+  } else if (features.speechiness > 0.33) {
+    facts.push('🎙️ Mix of music and speech/rap elements');
+  }
+  
+  // Instrumentalness
+  if (features.instrumentalness > 0.5) {
+    facts.push('🎻 Mostly instrumental - great for focus');
+  }
+  
+  // Liveness
+  if (features.liveness > 0.6) {
+    facts.push('🎪 Strong live performance feel');
+  }
+  
+  // Playlist size fact
+  if (tracks.length > 100) {
+    facts.push(`📚 Massive collection with ${tracks.length} tracks!`);
+  } else if (tracks.length > 50) {
+    facts.push(`🎧 Solid playlist with ${tracks.length} tracks`);
+  }
+  
+  return facts.slice(0, 6);
 }
 
 serve(async (req) => {
