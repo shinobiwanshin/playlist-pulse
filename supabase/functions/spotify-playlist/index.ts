@@ -171,10 +171,12 @@ async function fetchAudioFeatures(accessToken: string, trackIds: string[]): Prom
   return allFeatures;
 }
 
-// Fetch artist details including images
-async function fetchArtists(accessToken: string, artistIds: string[]): Promise<Map<string, string>> {
+// Fetch artist details including images and genres
+async function fetchArtists(accessToken: string, artistIds: string[]): Promise<{ images: Map<string, string>; genres: string[] }> {
   const artistImages = new Map<string, string>();
-  if (artistIds.length === 0) return artistImages;
+  const allGenres: string[] = [];
+  
+  if (artistIds.length === 0) return { images: artistImages, genres: allGenres };
 
   // Spotify API allows max 50 artist IDs per request
   const batches = [];
@@ -200,17 +202,114 @@ async function fetchArtists(accessToken: string, artistIds: string[]): Promise<M
         if (artist?.id && artist?.images?.[0]?.url) {
           artistImages.set(artist.id, artist.images[0].url);
         }
+        if (artist?.genres) {
+          allGenres.push(...artist.genres);
+        }
       });
     } else {
       console.warn('Failed to fetch some artist details');
     }
   }
 
-  return artistImages;
+  return { images: artistImages, genres: allGenres };
+}
+
+// Map genres to mood categories
+function analyzeMoodsFromGenres(genres: string[], audioFeatures: any): { name: string; value: number }[] {
+  const genreString = genres.join(' ').toLowerCase();
+  
+  // Genre-to-mood mapping with keywords
+  const moodKeywords = {
+    'Happy': ['happy', 'disco', 'dance', 'party', 'funk', 'pop', 'tropical', 'summer', 'upbeat', 'feel-good'],
+    'Melancholy': ['sad', 'melancholy', 'emo', 'blues', 'ballad', 'heartbreak', 'slow', 'emotional'],
+    'Energetic': ['edm', 'electronic', 'house', 'techno', 'drum and bass', 'dubstep', 'hardcore', 'metal', 'punk', 'rock'],
+    'Chill': ['chill', 'ambient', 'lo-fi', 'lofi', 'relaxing', 'smooth', 'easy listening', 'new age', 'meditation'],
+    'Soulful': ['soul', 'r&b', 'rnb', 'gospel', 'motown', 'neo-soul', 'jazz'],
+    'Old School': ['classic', 'oldies', 'retro', 'vintage', '70s', '80s', '90s', 'old school'],
+    'Romantic': ['romantic', 'love', 'sensual', 'slow jam', 'latin', 'bossa nova'],
+    'Aggressive': ['metal', 'hardcore', 'punk', 'thrash', 'death', 'black metal', 'grindcore'],
+    'Groovy': ['funk', 'groove', 'disco', 'boogie', 'bass'],
+    'Dreamy': ['dream', 'shoegaze', 'ethereal', 'atmospheric', 'synth', 'wave'],
+  };
+  
+  // Calculate genre-based mood scores
+  const moodScores: Record<string, number> = {};
+  
+  for (const [mood, keywords] of Object.entries(moodKeywords)) {
+    let score = 0;
+    for (const keyword of keywords) {
+      const matches = (genreString.match(new RegExp(keyword, 'gi')) || []).length;
+      score += matches;
+    }
+    moodScores[mood] = score;
+  }
+  
+  // Normalize and combine with audio features
+  const totalGenreScore = Object.values(moodScores).reduce((a, b) => a + b, 0) || 1;
+  
+  // Final mood calculation combining genres and audio features
+  const moods = [
+    { 
+      name: 'Happy', 
+      value: Math.round(
+        (audioFeatures.valence * 50) + 
+        ((moodScores['Happy'] / totalGenreScore) * 50)
+      )
+    },
+    { 
+      name: 'Energetic', 
+      value: Math.round(
+        (audioFeatures.energy * 50) + 
+        ((moodScores['Energetic'] / totalGenreScore) * 50)
+      )
+    },
+    { 
+      name: 'Danceable', 
+      value: Math.round(
+        (audioFeatures.danceability * 50) + 
+        (((moodScores['Groovy'] + moodScores['Happy']) / totalGenreScore) * 50)
+      )
+    },
+    { 
+      name: 'Chill', 
+      value: Math.round(
+        ((1 - audioFeatures.energy) * 40) + 
+        (audioFeatures.acousticness * 20) +
+        ((moodScores['Chill'] / totalGenreScore) * 40)
+      )
+    },
+    { 
+      name: 'Melancholy', 
+      value: Math.round(
+        ((1 - audioFeatures.valence) * 50) + 
+        ((moodScores['Melancholy'] / totalGenreScore) * 50)
+      )
+    },
+    { 
+      name: 'Soulful', 
+      value: Math.round(
+        ((moodScores['Soulful'] / totalGenreScore) * 70) +
+        (audioFeatures.acousticness * 30)
+      )
+    },
+    { 
+      name: 'Old School', 
+      value: Math.round(
+        ((moodScores['Old School'] / totalGenreScore) * 100)
+      )
+    },
+  ];
+  
+  // Sort by value and return top moods
+  return moods
+    .filter(m => m.value > 0)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 5)
+    .map(m => ({ ...m, value: Math.min(100, m.value) }));
 }
 
 // Process and analyze playlist data
-function analyzePlaylist(playlist: SpotifyPlaylist, audioFeatures: AudioFeatures[], artistImages: Map<string, string>) {
+function analyzePlaylist(playlist: SpotifyPlaylist, audioFeatures: AudioFeatures[], artistData: { images: Map<string, string>; genres: string[] }) {
   const tracks = playlist.tracks.items
     .filter(item => item.track && item.track.id)
     .map(item => item.track);
@@ -236,7 +335,7 @@ function analyzePlaylist(playlist: SpotifyPlaylist, audioFeatures: AudioFeatures
       rank: index + 1,
       name: artist.name,
       tracks: artist.count,
-      image: artistImages.get(artist.id) || '',
+      image: artistData.images.get(artist.id) || '',
     }));
 
   // Calculate average audio features
@@ -268,14 +367,12 @@ function analyzePlaylist(playlist: SpotifyPlaylist, audioFeatures: AudioFeatures
     avgFeatures[key as keyof typeof avgFeatures] /= featureCount;
   });
 
-  // Determine genres/moods based on audio features
-  const moodData = [
-    { name: 'Happy', value: Math.round(avgFeatures.valence * 100) },
-    { name: 'Energetic', value: Math.round(avgFeatures.energy * 100) },
-    { name: 'Danceable', value: Math.round(avgFeatures.danceability * 100) },
-    { name: 'Acoustic', value: Math.round(avgFeatures.acousticness * 100) },
-    { name: 'Chill', value: Math.round((1 - avgFeatures.energy) * 100) },
-  ];
+  // Analyze moods from genres and audio features
+  const moodData = analyzeMoodsFromGenres(artistData.genres, avgFeatures);
+  
+  // Log genres for debugging
+  const uniqueGenres = [...new Set(artistData.genres)].slice(0, 20);
+  console.log('Top genres found:', uniqueGenres.join(', '));
 
   // Get release years for decade analysis
   const decadeCounts: Record<string, number> = {};
@@ -329,7 +426,7 @@ function analyzePlaylist(playlist: SpotifyPlaylist, audioFeatures: AudioFeatures
     moodData,
     genreData,
     audioFeatures: avgFeatures,
-    facts: generateFacts(playlist, tracks, avgFeatures, decadeCounts),
+    facts: generateFacts(playlist, tracks, avgFeatures, decadeCounts, artistData.genres),
   };
 }
 
@@ -342,88 +439,94 @@ function formatDuration(ms: number): string {
   return `${minutes}m`;
 }
 
-function generateFacts(playlist: SpotifyPlaylist, tracks: any[], features: any, decades: Record<string, number>): string[] {
+function generateFacts(playlist: SpotifyPlaylist, tracks: any[], features: any, decades: Record<string, number>, genres: string[]): string[] {
   const facts = [];
+  const genreString = genres.join(' ').toLowerCase();
+  
+  // Top genres detection
+  const genreCounts: Record<string, number> = {};
+  genres.forEach(g => {
+    genreCounts[g] = (genreCounts[g] || 0) + 1;
+  });
+  const topGenres = Object.entries(genreCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([name]) => name);
+  
+  if (topGenres.length > 0) {
+    facts.push(`🎵 Dominated by ${topGenres.slice(0, 2).join(' & ')} vibes`);
+  }
   
   // Decade analysis
   const topDecade = Object.entries(decades).sort((a, b) => b[1] - a[1])[0];
   if (topDecade) {
     const percentage = Math.round((topDecade[1] / tracks.length) * 100);
-    facts.push(`${percentage}% of tracks are from the ${topDecade[0]}`);
+    facts.push(`📅 ${percentage}% of tracks are from the ${topDecade[0]}`);
   }
   
-  // Mood/Valence analysis
-  if (features.valence > 0.7) {
-    facts.push('🎉 Extremely upbeat and cheerful playlist!');
-  } else if (features.valence > 0.5) {
-    facts.push('😊 This playlist has a positive and happy vibe');
-  } else if (features.valence > 0.3) {
-    facts.push('🎭 A balanced mix of moods and emotions');
-  } else {
-    facts.push('💭 Melancholic and introspective mood throughout');
+  // Genre-based mood facts
+  if (genreString.includes('soul') || genreString.includes('r&b') || genreString.includes('neo-soul')) {
+    facts.push('🎷 Soulful and smooth - perfect for unwinding');
   }
   
-  // Energy analysis
-  if (features.energy > 0.8) {
-    facts.push('⚡ Ultra high-energy - perfect for intense workouts!');
-  } else if (features.energy > 0.6) {
-    facts.push('🔥 High energy playlist - great for staying active');
-  } else if (features.energy < 0.3) {
-    facts.push('🌙 Low-key and relaxing - ideal for winding down');
+  if (genreString.includes('disco') || genreString.includes('funk') || genreString.includes('boogie')) {
+    facts.push('🪩 Disco & funk flavors - get your groove on!');
   }
   
-  // Tempo analysis with more detail
-  const tempo = Math.round(features.tempo);
-  if (tempo > 140) {
-    facts.push(`🚀 Fast-paced at ${tempo} BPM - get ready to move!`);
-  } else if (tempo > 120) {
-    facts.push(`💃 Upbeat tempo at ${tempo} BPM - perfect for dancing`);
-  } else if (tempo > 100) {
-    facts.push(`🎵 Moderate tempo at ${tempo} BPM - versatile vibes`);
-  } else if (tempo > 80) {
-    facts.push(`🎹 Laid-back groove at ${tempo} BPM`);
-  } else {
-    facts.push(`🌊 Slow and smooth at ${tempo} BPM`);
+  if (genreString.includes('melanchol') || genreString.includes('sad') || genreString.includes('emo')) {
+    facts.push('💔 Melancholic undertones throughout');
   }
   
-  // Danceability analysis
-  if (features.danceability > 0.8) {
-    facts.push('💃 Extremely danceable - impossible to sit still!');
-  } else if (features.danceability > 0.6) {
-    facts.push('🕺 Great for dancing - high groove factor');
+  if (genreString.includes('classic') || genreString.includes('oldies') || genreString.includes('retro')) {
+    facts.push('🎙️ Classic old school vibes');
   }
   
-  // Acousticness analysis
-  if (features.acousticness > 0.7) {
-    facts.push('🎸 Predominantly acoustic and organic sounds');
-  } else if (features.acousticness > 0.4) {
-    facts.push('🎹 Nice blend of acoustic and electronic elements');
-  } else if (features.acousticness < 0.2) {
-    facts.push('🎛️ Heavily produced with electronic elements');
+  if (genreString.includes('hip hop') || genreString.includes('rap')) {
+    facts.push('🎤 Hip-hop & rap influences strong');
   }
   
-  // Speechiness (vocal content)
-  if (features.speechiness > 0.6) {
-    facts.push('🎤 Lots of spoken word or rap content');
-  } else if (features.speechiness > 0.33) {
-    facts.push('🎙️ Mix of music and speech/rap elements');
+  if (genreString.includes('indie') || genreString.includes('alternative')) {
+    facts.push('🎸 Indie & alternative edge');
   }
   
-  // Instrumentalness
-  if (features.instrumentalness > 0.5) {
-    facts.push('🎻 Mostly instrumental - great for focus');
+  if (genreString.includes('electronic') || genreString.includes('edm') || genreString.includes('house')) {
+    facts.push('🎛️ Electronic beats drive this playlist');
   }
   
-  // Liveness
-  if (features.liveness > 0.6) {
-    facts.push('🎪 Strong live performance feel');
+  // Audio feature-based facts (only add if not enough genre facts)
+  if (facts.length < 4) {
+    const tempo = Math.round(features.tempo);
+    if (tempo > 140) {
+      facts.push(`🚀 Fast-paced at ${tempo} BPM`);
+    } else if (tempo > 120) {
+      facts.push(`💃 Upbeat tempo at ${tempo} BPM - perfect for dancing`);
+    } else if (tempo < 90) {
+      facts.push(`🌊 Slow and smooth at ${tempo} BPM`);
+    }
   }
   
-  // Playlist size fact
-  if (tracks.length > 100) {
+  if (facts.length < 5 && features.valence > 0.7) {
+    facts.push('🎉 Extremely upbeat and cheerful!');
+  } else if (facts.length < 5 && features.valence < 0.3) {
+    facts.push('💭 Deep and introspective mood');
+  }
+  
+  if (facts.length < 5 && features.energy > 0.8) {
+    facts.push('⚡ High-energy - perfect for workouts!');
+  } else if (facts.length < 5 && features.energy < 0.3) {
+    facts.push('🌙 Low-key and relaxing atmosphere');
+  }
+  
+  if (facts.length < 5 && features.danceability > 0.8) {
+    facts.push('🕺 Impossible to sit still!');
+  }
+  
+  if (facts.length < 5 && features.acousticness > 0.6) {
+    facts.push('🎸 Acoustic and organic sounds');
+  }
+  
+  if (facts.length < 6 && tracks.length > 100) {
     facts.push(`📚 Massive collection with ${tracks.length} tracks!`);
-  } else if (tracks.length > 50) {
-    facts.push(`🎧 Solid playlist with ${tracks.length} tracks`);
   }
   
   return facts.slice(0, 6);
@@ -463,12 +566,12 @@ serve(async (req) => {
         .flatMap(item => item.track.artists.map(a => a.id))
     )].slice(0, 50); // Limit to top 50 artists
     
-    const [audioFeatures, artistImages] = await Promise.all([
+    const [audioFeatures, artistData] = await Promise.all([
       fetchAudioFeatures(accessToken, trackIds),
       fetchArtists(accessToken, artistIds),
     ]);
     
-    const analysis = analyzePlaylist(playlist, audioFeatures, artistImages);
+    const analysis = analyzePlaylist(playlist, audioFeatures, artistData);
 
     console.log('Analysis complete for playlist:', playlist.name);
 
