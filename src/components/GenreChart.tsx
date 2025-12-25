@@ -40,6 +40,8 @@ const GenreChart = ({ stats, genreData }: GenreChartProps) => {
                 paddingAngle={3}
                 dataKey="value"
                 nameKey="name"
+                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                labelLine={{ stroke: "hsl(0, 0%, 70%)" }}
               >
                 {data.map((_, index) => (
                   <Cell 
@@ -56,6 +58,8 @@ const GenreChart = ({ stats, genreData }: GenreChartProps) => {
                   borderRadius: "8px",
                   color: "hsl(0, 0%, 98%)",
                 }}
+                labelStyle={{ color: "hsl(0, 0%, 98%)" }}
+                itemStyle={{ color: "hsl(0, 0%, 98%)" }}
               />
             </PieChart>
           </ResponsiveContainer>
