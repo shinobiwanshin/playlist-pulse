@@ -134,3 +134,18 @@
 .animation-delay-400 {
   animation-delay: 400ms;
 }
+
+/* Recharts label styling for dark theme */
+.recharts-pie-label-text {
+  fill: hsl(0 0% 90%) !important;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.recharts-label {
+  fill: hsl(0 0% 90%) !important;
+}
+
+.recharts-text {
+  fill: hsl(0 0% 85%);
+}
