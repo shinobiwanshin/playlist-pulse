@@ -40,8 +40,6 @@ const GenreChart = ({ stats, genreData }: GenreChartProps) => {
                 paddingAngle={3}
                 dataKey="value"
                 nameKey="name"
-                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                labelLine={{ stroke: "hsl(0, 0%, 70%)" }}
               >
                 {data.map((_, index) => (
                   <Cell 
