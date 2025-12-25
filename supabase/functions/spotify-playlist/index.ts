@@ -123,6 +123,13 @@ async function fetchPlaylist(accessToken: string, playlistId: string): Promise<S
   if (!response.ok) {
     const error = await response.text();
     console.error('Failed to fetch playlist:', error);
+    
+    if (response.status === 404) {
+      throw new Error('Playlist not found. Make sure the playlist is public and the URL is correct.');
+    } else if (response.status === 403) {
+      throw new Error('Access denied. This playlist may be private or region-restricted.');
+    }
+    
     throw new Error(`Failed to fetch playlist: ${response.status}`);
   }
 
